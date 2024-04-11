@@ -1,0 +1,3 @@
+### From Nand To Tetris
+
+The [NandToTetris repository](https://github.com/marcushaldane/NandToTetris) contains my work done while reading Noam Nisan and Shimon Schocken's [*The Elements of Computing Systems: Building a Modern Computer from First Principles; Nand to Tetris Companion*](https://www.nand2tetris.org/book). The basic organizational structure to this repository is made up of projects (00-13), which contain code and other materials useful for building a HACK computer. The [project requirements](https://www.nand2tetris.org/course) can be found on [The official website of Nand to Tetris courses](https://www.nand2tetris.org/).
