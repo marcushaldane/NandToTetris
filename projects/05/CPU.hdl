@@ -1,0 +1,74 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM == 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to restart the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // Address of next instruction
+
+    PARTS:
+    // Handle A register
+    Mux16(a=instruction, b=ALUout, sel=instruction[15], out=AregisterInput);
+    Not(in=instruction[15], out=MSBInstruction);
+    And(a=instruction[15], b=instruction[5], out=storeALUoutInA);
+    Or(a=MSBInstruction, b=storeALUoutInA, out=loadAregister);
+    ARegister(in=AregisterInput, load=loadAregister, out=AregisterOut, out[0..14]=addressM); //Also send AregisterOut to addressM output pin
+
+    // A or M as input to ALU
+    And(a=instruction[15], b=instruction[12], out=AMSel);
+    Mux16(a=AregisterOut, b=inM, sel=AMSel, out=YInputALU);
+
+    // Handle D register
+    And(a=instruction[15], b=instruction[4], out=DLoad);
+    DRegister(in=ALUout, load=DLoad, out=XInputALU);
+
+    // ALU implimentation
+    ALU(x=XInputALU, y=YInputALU, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=ALUout, out=outM, zr=ALUZeroOutput, ng=ALUNegativeOutput);
+    
+    // writeM output
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
+    // Handle PC and Jump behavior
+    // Check for jump conditions for negative and zero jumps
+    And(a=ALUZeroOutput, b=instruction[1], out=JumpZero);
+    And(a=ALUNegativeOutput, b=instruction[2], out=JumpNegative);
+    
+    // Check for positive jump by ensureing ALU output is non-negative and non-zero
+    Not(in=ALUNegativeOutput, out=ALUNonNegativeOutput);
+    Not(in=ALUZeroOutput, out=ALUNonZeroOutput);
+    And(a=ALUNonNegativeOutput, b=ALUNonZeroOutput, out=ALUPositiveOutput);
+    And(a=ALUPositiveOutput, b=instruction[0], out=JumpPositive);
+    
+    // Set Jump if any of the jump conditions are met
+    Or8Way(in[0]=JumpZero, in[1]=JumpNegative, in[2]=JumpPositive, in[3..7]=false, out=JumpConditionMet);
+    
+    // ensure jump is correct and that instruction is a C instruction 
+    // it is possible that an address in the 0b0vvv vvvv vvvv vvvv instruction format could trigger a jump without the next AND gate: 
+    And(a=JumpConditionMet, b=instruction[15], out=Jump);
+    Not(in=Jump, out=NoJump);
+    PC(in=AregisterOut, inc=NoJump, load=Jump, reset=reset, out[0..14]=pc);
+}

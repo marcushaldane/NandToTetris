@@ -1,5 +1,11 @@
 # git will ignore the following file:
 tools
+*.cmp
+*.out
+*.tst
+*.hack
+00
+04
 06
 07
 08
