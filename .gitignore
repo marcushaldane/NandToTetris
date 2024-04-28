@@ -3,10 +3,14 @@ tools
 *.cmp
 *.out
 *.tst
-*.hack
+# *.hack
 00
+05
+add
+max
+pong
+rect
 04
-06
 07
 08
 09

@@ -1,0 +1,17 @@
+M=0
+D=M
+A=A-1
+D;JEQ
+M=D+M
+MD=M+1
+D=-1
+A=!D
+A=-D
+M=D|M
+A=D&A
+D=D-M
+D;JLT
+0;JMP
+D-1;JGT
+M;JNE
+M-1;JLE
