@@ -80,7 +80,6 @@ SYMBOL_CODES = {
 }
 
 def parse_compute_instruction(instruction):
-    # print("parse_compute_instruction")
     op, a_bit, dest, jump = '','','',''
     equalSignCharPosition = instruction.find('=')
     semiColonCharPosition = instruction.find(';')
@@ -88,35 +87,25 @@ def parse_compute_instruction(instruction):
         dest = 'null'
         op = instruction[:semiColonCharPosition]
         jump = instruction[semiColonCharPosition+1:]
-        # print("Jump Command")
-        # print(instruction[semiColonCharPosition])
     elif(equalSignCharPosition != -1): # Equal sign was found in string search
         dest = instruction[:equalSignCharPosition]
         op = instruction[equalSignCharPosition+1:]
         jump = 'null'
-        # print("Calculation Command")
-        # print(instruction[equalSignCharPosition])
     MinOP = op.find('M')
     if(MinOP != -1): # M is found in the op string
         a_bit = '1'
     else:
         a_bit = '0'
-    # print("dest: {}".format(dest))
-    # print("op: {}".format(op))
-    # print("jump: {}".format(jump))
-    # print("a_bit: {}".format(a_bit))
-    # print("\n")
     return op, a_bit, dest, jump
 
 def parse_address_instruction(instruction):
-    # print("parse_address_instruction")
     atCharPosition = instruction.find('@')
     machineCodeAddress = instruction[atCharPosition+1:]
     if(machineCodeAddress.isdigit()): # Address is literal
         shortBinaryAddress = bin(int(machineCodeAddress)).replace('0b', '')
         extraZerosNeeded = 16 - len(shortBinaryAddress)
         binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
-    else: # Address is literal
+    else: # Address is symbolic
         print("Symbolic Address")
         binaryInstruction = "0000111100001111"
     return binaryInstruction
@@ -129,20 +118,15 @@ def assemble_binary(instruction):
     else:
         op, a_bit, dest, jump = parse_compute_instruction(instruction)
         c_bits = OP_CODES[op]
-        d_bits = DEST_CODES[dest] # "".join([DEST_CODES.get(d, '0') for d in dest])  # Build destination bits
-        j_bits = JUMP_CODES[jump] #JUMP_CODES.get(jump, '000')  # https://www.w3schools.com/python/ref_dictionary_get.asp
-        # print("c_bits: {}".format(c_bits))
-        # print("d_bits: {}".format(d_bits))
-        # print("j_bits: {}".format(j_bits))
+        d_bits = DEST_CODES[dest] 
+        j_bits = JUMP_CODES[jump] 
         binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
-    # print("binaryInstruction: {}".format(binaryInstruction))
     return binaryInstruction
 
 def process_file(inputFileName, outputFileName):
     """ Main file processing """
     with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
         for line in infile:
-            # print("line: [{}]".format(line))
             commentPosition = line.find('/') # str.find() will return -1 if no comment symbol is found. 
             # Using slice notation like is done three lines below will result in a string with the last char removed as such: 
             #  line starts as '@R0';  string slicing like this ->  line[:-1]   turns line string into this -> line = '@R'{0};  where  {0} is removed
@@ -150,10 +134,7 @@ def process_file(inputFileName, outputFileName):
                 line = line[:commentPosition] # if no comment is found on a line, no need to shorten string to get rid of comment. Strip will remove all whitespace. 
             line = line.strip()
             if (line == ''): continue  # check for comment only lines 
-            # print("line: [{}]".format(line))
             binary = assemble_binary(line)
             outfile.write(binary  + '\n') 
 
-
-# process_file("assembler_c_instruction_only.asm")
-process_file(sys.argv[1], sys.argv[2]) # run process_file() function on filename passed in as argv[1]
+process_file(sys.argv[1], sys.argv[2]) # run process_file() function on filename passed in as argv[1]. argv[2] should be the name of the output file with .hack extension
