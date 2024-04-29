@@ -130,7 +130,7 @@ def process_file(inputFileName, outputFileName):
             commentPosition = line.find('/') # str.find() will return -1 if no comment symbol is found. 
             # Using slice notation like is done three lines below will result in a string with the last char removed as such: 
             #  line starts as '@R0';  string slicing like this ->  line[:-1]   turns line string into this -> line = '@R'{0};  where  {0} is removed
-            if(commentPosition != -1): # /comment is found in the line string
+            if(commentPosition != -1): # comment symbol '/' is found in the line string
                 line = line[:commentPosition] # if no comment is found on a line, no need to shorten string to get rid of comment. Strip will remove all whitespace. 
             line = line.strip()
             if (line == ''): continue  # check for comment only lines 
