@@ -1,0 +1,26 @@
+@0           // comment
+M=0          // comment
+@1           // comment
+M=0          // comment
+@2           // comment
+D=M          // comment
+@6           // comment
+D;JEQ        // comment
+@821         // comment
+D=M          // comment
+@47          // comment
+// comment
+D;JEQ        // comment
+@245         // comment
+D=M          // comment
+@2048        // comment 
+M=D+M        // comment
+@99          // comment
+MD=M+1       // comment
+@100         // comment
+D=D-M        // comment
+@1234        // comment
+D;JLT        // comment
+@1024        // comment
+0;JMP        // comment
+@R0          // comment
