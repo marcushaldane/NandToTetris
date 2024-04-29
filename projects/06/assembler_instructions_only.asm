@@ -23,4 +23,3 @@ D=D-M        // comment
 D;JLT        // comment
 @1024        // comment
 0;JMP        // comment
-@R0          // comment
