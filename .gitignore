@@ -1,5 +1,6 @@
 # git will ignore the following file:
 tools
+__pycache__
 *.cmp
 *.out
 *.tst

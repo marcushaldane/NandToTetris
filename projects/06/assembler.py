@@ -102,7 +102,7 @@ def findSymbols(line, instructionCounter):
             shortHexAddress = hex(instructionCounter).replace('0x', '')
             extraZerosNeeded = 4 - len(shortHexAddress)
             paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
-            SYMBOL_CODES.update({symbol: paddedHex}) # might need to check that next line is actually an instruction, not a comment or pseudo instruction
+            SYMBOL_CODES.update({symbol: paddedHex})
             return 1
     return 0
 
@@ -151,10 +151,7 @@ def parseComputeInstruction(instruction):
     dest = instruction[:equalSignCharPosition]
     op = instruction[equalSignCharPosition+1:]
     jump = 'null'
-    MinOP = op.find('M')
-    if(MinOP != -1):  a_bit = '1'
-    else: a_bit = '0'
-    return op, a_bit, dest, jump
+    return op, dest, jump
 
 
 """ 
@@ -171,10 +168,7 @@ def parseJumpInstruction(instruction):
     dest = 'null'
     op = instruction[:semiColonCharPosition]
     jump = instruction[semiColonCharPosition+1:]
-    MinOP = op.find('M')
-    if(MinOP != -1): a_bit = '1'
-    else: a_bit = '0'
-    return op, a_bit, dest, jump
+    return op, dest, jump
 
 """ 
 ----------------------------------------------------------------
@@ -185,15 +179,18 @@ PURPOSE:
 RETURN: None
 ----------------------------------------------------------------
 """
-def assembleBinary(instruction, instructionType):
-    if(instructionType == 'AddressInstruction'): return parseAddressInstruction(instruction)
-    if(instructionType == 'ComputeInstruction'): op, a_bit, dest, jump = parseComputeInstruction(instruction)
-    if(instructionType == 'JumpInstruction'): op, a_bit, dest, jump = parseJumpInstruction(instruction)
+def assembleBinary(instruction, instructionType, nextRAMAvailable):
+    if(instructionType == 'AddressInstruction'): return parseAddressInstruction(instruction, nextRAMAvailable)
+    if(instructionType == 'ComputeInstruction'): op, dest, jump = parseComputeInstruction(instruction)
+    if(instructionType == 'JumpInstruction'): op, dest, jump = parseJumpInstruction(instruction)
     c_bits = OP_CODES[op]
     d_bits = DEST_CODES[dest] 
     j_bits = JUMP_CODES[jump] 
+    MinOP = op.find('M')
+    if(MinOP != -1): a_bit = '1'
+    else: a_bit = '0'
     binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
-    return binaryInstruction
+    return binaryInstruction, False
 
 
 """ 
@@ -205,23 +202,25 @@ PURPOSE:
 RETURN: None
 ----------------------------------------------------------------
 """
-def parseAddressInstruction(instruction):
+def parseAddressInstruction(instruction, nextRAMAvailable):
+    incrimentRAM = False
     atCharPosition = instruction.find('@')
-    machineCodeAddress = instruction[atCharPosition+1:]
-    openingParenthesisCharPosition = instruction.find('(')
-    closingParenthesisCharPosition = instruction.find(')')
-    if(machineCodeAddress.isdigit()): # Address is literal
-        shortBinaryAddress = bin(int(machineCodeAddress)).replace('0b', '')
-        extraZerosNeeded = 16 - len(shortBinaryAddress)
-        binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
-    elif(openingParenthesisCharPosition == -1 and closingParenthesisCharPosition == -1):
-        shortBinaryAddress = bin(int(SYMBOL_CODES[machineCodeAddress].replace('0x', ''),16)).replace('0b', '')
-        extraZerosNeeded = 16 - len(shortBinaryAddress)
-        binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
+    assemblyCodeAddress = instruction[atCharPosition+1:]
+    # print('assemblyCodeAddress: {}'.format(assemblyCodeAddress))
+    if(assemblyCodeAddress.isdigit()): # Address is literal
+        shortBinaryAddress = bin(int(assemblyCodeAddress)).replace('0b', '')
     else: # Address is symbolic
-        pseudoInstruction = instruction[openingParenthesisCharPosition+1:closingParenthesisCharPosition]
-        binaryInstruction = bin(int(SYMBOL_CODES[pseudoInstruction].replace('0x', ''),16)).replace('0b', '')
-    return binaryInstruction
+        binaryInstruction = "TODO"
+        if assemblyCodeAddress not in SYMBOL_CODES:
+            shortHexAddress = hex(nextRAMAvailable).replace('0x', '')
+            extraZerosNeeded = 4 - len(shortHexAddress)
+            paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
+            SYMBOL_CODES.update({assemblyCodeAddress: paddedHex})
+            incrimentRAM = True
+        shortBinaryAddress = bin(int(SYMBOL_CODES[assemblyCodeAddress].replace('0x', ''),16)).replace('0b', '')
+    extraZerosNeeded = 16 - len(shortBinaryAddress)
+    binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
+    return binaryInstruction, incrimentRAM
 
 
 """ 
@@ -230,19 +229,13 @@ FUNCTION: determineInstructionType(instruction)
 ----------------------------------------------------------------
 PURPOSE: 
 ----------------------------------------------------------------
-RETURN: None
+RETURN: String declaring instruction type
 ----------------------------------------------------------------
 """
 def determineInstructionType(instruction):
-    if '@' in instruction:
-        # print('At symbol found')
-        return 'AddressInstruction'
-    if '=' in instruction:
-        # print('Equal sign found')
-        return 'ComputeInstruction'
-    if ';' in instruction:
-        # print('Semi-colon found')
-        return 'JumpInstruction'
+    if '@' in instruction: return 'AddressInstruction'
+    if '=' in instruction: return 'ComputeInstruction'
+    if ';' in instruction: return 'JumpInstruction'
 
 """ 
 ----------------------------------------------------------------
@@ -254,12 +247,12 @@ RETURN: None
 ----------------------------------------------------------------
 """
 def secondPass(lines, outfile):
-
+    nextRAMAvailable = 16
     for line in lines: 
-        # outfile.write(line + '\n') 
         instructionType = determineInstructionType(line)
-        binary = assembleBinary(line, instructionType)
+        binary, incrimentRAM = assembleBinary(line, instructionType, nextRAMAvailable)
         outfile.write(binary  + '\n') 
+        if(incrimentRAM): nextRAMAvailable += 1
         
 
 """ 
