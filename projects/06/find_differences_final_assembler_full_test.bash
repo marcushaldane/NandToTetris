@@ -11,10 +11,10 @@ for filePath in "${filePaths[@]}" ; do
     echo ${test_hack_file_name}
     echo "-----------------"
     differences=$(sort $my_assembler_output_file_name $test_hack_file_name | uniq -u)
-    if [ -z $differences ] ; then 
+    if [ -z "$differences" ] ; then 
         echo "No Differences Found"
     else
-        echo "Differences Found: $differences"
+        echo -e "Differences Found:\r\n$differences"
     fi
     echo "================="
     ((idx+=2))

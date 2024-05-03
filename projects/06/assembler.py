@@ -79,62 +79,208 @@ SYMBOL_CODES = {
     'KBD': '0x6000',
 }
 
-def parse_compute_instruction(instruction):
-    op, a_bit, dest, jump = '','','',''
+""" 
+----------------------------------------------------------------
+FUNCTION: findSymbols(line, instructionCounter)
+----------------------------------------------------------------
+PURPOSE: Determine if a line from the infile file object is a symbol
+       + Add symbols which do not already exist in the SYMBOL_CODES dictionary
+       + Symbols come in the form of a key:value pair with
+            key=symbol and value=instructionCounter
+----------------------------------------------------------------
+RETURN: 0 if no key:value pair was added to SYMBOL_CODES, 
+1 if a new key:value pair was added to SYMBOL_CODES
+----------------------------------------------------------------
+"""
+def findSymbols(line, instructionCounter):
+    openingParenthesisCharPosition = line.find('(')
+    closingParenthesisCharPosition = line.find(')')
+    if(openingParenthesisCharPosition != -1):
+        symbol = line[openingParenthesisCharPosition+1:closingParenthesisCharPosition]
+        if(symbol in SYMBOL_CODES): return 0
+        else:
+            shortHexAddress = hex(instructionCounter).replace('0x', '')
+            extraZerosNeeded = 4 - len(shortHexAddress)
+            paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
+            SYMBOL_CODES.update({symbol: paddedHex}) # might need to check that next line is actually an instruction, not a comment or pseudo instruction
+            return 1
+    return 0
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: firstPass(infile)
+----------------------------------------------------------------
+PURPOSE: Parse and clean lines from the infile file object.
+       + Find and remove comments
+       + Remove whitespace with .strip()
+       + Skip lines with no instruction
+       + Find symbols using the findSymbols(line, instructionCounter) function
+       + Add cleaned up instruction lines to the lines list
+       + Incriment instructionCounter
+----------------------------------------------------------------
+RETURN: lines list
+----------------------------------------------------------------
+"""
+def firstPass(infile):
+    lines = []
+    instructionCounter = 0
+    for line in infile:
+        commentPosition = line.find('/') 
+        if(commentPosition != -1): line = line[:commentPosition]
+        line = line.strip() 
+        if (line == ''): continue
+        symbolFound = findSymbols(line, instructionCounter)
+        if(symbolFound): continue
+        lines.append(line)
+        instructionCounter = instructionCounter + 1
+    return lines
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseComputeInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def parseComputeInstruction(instruction):
     equalSignCharPosition = instruction.find('=')
-    semiColonCharPosition = instruction.find(';')
-    if(semiColonCharPosition != -1): # SemiColon was found in string search
-        dest = 'null'
-        op = instruction[:semiColonCharPosition]
-        jump = instruction[semiColonCharPosition+1:]
-    elif(equalSignCharPosition != -1): # Equal sign was found in string search
-        dest = instruction[:equalSignCharPosition]
-        op = instruction[equalSignCharPosition+1:]
-        jump = 'null'
+    dest = instruction[:equalSignCharPosition]
+    op = instruction[equalSignCharPosition+1:]
+    jump = 'null'
     MinOP = op.find('M')
-    if(MinOP != -1): # M is found in the op string
-        a_bit = '1'
-    else:
-        a_bit = '0'
+    if(MinOP != -1):  a_bit = '1'
+    else: a_bit = '0'
     return op, a_bit, dest, jump
 
-def parse_address_instruction(instruction):
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseJumpInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: op, a_bit, dest, jump
+----------------------------------------------------------------
+"""
+def parseJumpInstruction(instruction):
+    semiColonCharPosition = instruction.find(';')
+    dest = 'null'
+    op = instruction[:semiColonCharPosition]
+    jump = instruction[semiColonCharPosition+1:]
+    MinOP = op.find('M')
+    if(MinOP != -1): a_bit = '1'
+    else: a_bit = '0'
+    return op, a_bit, dest, jump
+
+""" 
+----------------------------------------------------------------
+FUNCTION: assembleBinary(instruction, instructionType)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def assembleBinary(instruction, instructionType):
+    if(instructionType == 'AddressInstruction'): return parseAddressInstruction(instruction)
+    if(instructionType == 'ComputeInstruction'): op, a_bit, dest, jump = parseComputeInstruction(instruction)
+    if(instructionType == 'JumpInstruction'): op, a_bit, dest, jump = parseJumpInstruction(instruction)
+    c_bits = OP_CODES[op]
+    d_bits = DEST_CODES[dest] 
+    j_bits = JUMP_CODES[jump] 
+    binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
+    return binaryInstruction
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseAddressInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def parseAddressInstruction(instruction):
     atCharPosition = instruction.find('@')
     machineCodeAddress = instruction[atCharPosition+1:]
+    openingParenthesisCharPosition = instruction.find('(')
+    closingParenthesisCharPosition = instruction.find(')')
     if(machineCodeAddress.isdigit()): # Address is literal
         shortBinaryAddress = bin(int(machineCodeAddress)).replace('0b', '')
         extraZerosNeeded = 16 - len(shortBinaryAddress)
         binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
+    elif(openingParenthesisCharPosition == -1 and closingParenthesisCharPosition == -1):
+        shortBinaryAddress = bin(int(SYMBOL_CODES[machineCodeAddress].replace('0x', ''),16)).replace('0b', '')
+        extraZerosNeeded = 16 - len(shortBinaryAddress)
+        binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
     else: # Address is symbolic
-        print("Symbolic Address")
-        binaryInstruction = "0000111100001111"
+        pseudoInstruction = instruction[openingParenthesisCharPosition+1:closingParenthesisCharPosition]
+        binaryInstruction = bin(int(SYMBOL_CODES[pseudoInstruction].replace('0x', ''),16)).replace('0b', '')
     return binaryInstruction
 
 
-def assemble_binary(instruction):
-    binaryInstruction = ''
-    if(instruction[0] == '@'):
-        binaryInstruction = parse_address_instruction(instruction)
-    else:
-        op, a_bit, dest, jump = parse_compute_instruction(instruction)
-        c_bits = OP_CODES[op]
-        d_bits = DEST_CODES[dest] 
-        j_bits = JUMP_CODES[jump] 
-        binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
-    return binaryInstruction
+""" 
+----------------------------------------------------------------
+FUNCTION: determineInstructionType(instruction)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def determineInstructionType(instruction):
+    if '@' in instruction:
+        # print('At symbol found')
+        return 'AddressInstruction'
+    if '=' in instruction:
+        # print('Equal sign found')
+        return 'ComputeInstruction'
+    if ';' in instruction:
+        # print('Semi-colon found')
+        return 'JumpInstruction'
 
+""" 
+----------------------------------------------------------------
+FUNCTION: secondPass(infile, outfile)
+----------------------------------------------------------------
+PURPOSE: 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def secondPass(lines, outfile):
+
+    for line in lines: 
+        # outfile.write(line + '\n') 
+        instructionType = determineInstructionType(line)
+        binary = assembleBinary(line, instructionType)
+        outfile.write(binary  + '\n') 
+        
+
+""" 
+----------------------------------------------------------------
+FUNCTION: process_file(inputFileName, outputFileName)
+----------------------------------------------------------------
+PURPOSE: open(inputFileName) to read lines of .asm file
+       + open(outputFileName) to write lines of binary instructions into .hack file
+       + Call firstPass(infile)
+       + Call secondPass(infile, outfile)
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
 def process_file(inputFileName, outputFileName):
     """ Main file processing """
     with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
-        for line in infile:
-            commentPosition = line.find('/') # str.find() will return -1 if no comment symbol is found. 
-            # Using slice notation like is done three lines below will result in a string with the last char removed as such: 
-            #  line starts as '@R0';  string slicing like this ->  line[:-1]   turns line string into this -> line = '@R'{0};  where  {0} is removed
-            if(commentPosition != -1): # /comment is found in the line string
-                line = line[:commentPosition] # if no comment is found on a line, no need to shorten string to get rid of comment. Strip will remove all whitespace. 
-            line = line.strip()
-            if (line == ''): continue  # check for comment only lines 
-            binary = assemble_binary(line)
-            outfile.write(binary  + '\n') 
+        lines = firstPass(infile)
+        # print(lines)
+        # print(SYMBOL_CODES)
+        secondPass(lines, outfile)
 
-process_file(sys.argv[1], sys.argv[2]) # run process_file() function on filename passed in as argv[1]. argv[2] should be the name of the output file with .hack extension
+
+process_file(sys.argv[1], sys.argv[2]) 
