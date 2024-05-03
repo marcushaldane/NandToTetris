@@ -79,6 +79,128 @@ SYMBOL_CODES = {
     'KBD': '0x6000',
 }
 
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseComputeInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: Generate and return destination, operation and jump bits for a 
+       + compute instruction. 
+----------------------------------------------------------------
+RETURN: op, dest, jump
+----------------------------------------------------------------
+"""
+def parseComputeInstruction(instruction):
+    equalSignCharPosition = instruction.find('=')
+    dest = instruction[:equalSignCharPosition]
+    op = instruction[equalSignCharPosition+1:]
+    jump = 'null'
+    return op, dest, jump
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseJumpInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: Generate and return destination, operation and jump bits for a 
+       + jump instruction. 
+----------------------------------------------------------------
+RETURN: op, dest, jump
+----------------------------------------------------------------
+"""
+def parseJumpInstruction(instruction):
+    semiColonCharPosition = instruction.find(';')
+    dest = 'null'
+    op = instruction[:semiColonCharPosition]
+    jump = instruction[semiColonCharPosition+1:]
+    return op, dest, jump
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: parseAddressInstruction(instruction)
+----------------------------------------------------------------
+PURPOSE: Determine if an address instruction contains a literal address,
+       + or if the address instruction contains a symbolic address.
+       + In the first case a binary address can be produced by translating 
+       + that literal decimal value into its binary equivalent.
+       + In the second case, it must be further determined if that 
+       + symbol is already defined in the SYMBOL_CODES dictionary.
+       + If the symbol is not defined, a hexadecimal address is generated
+       + based on the nextRAMAvailable variable passed into the function
+       + and incrimentRAM is set to True.
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def parseAddressInstruction(instruction, nextRAMAvailable):
+    incrimentRAM = False
+    atCharPosition = instruction.find('@')
+    assemblyCodeAddress = instruction[atCharPosition+1:]
+    if(assemblyCodeAddress.isdigit()): # Address is literal
+        shortBinaryAddress = bin(int(assemblyCodeAddress)).replace('0b', '')
+    else: # Address is symbolic
+        if assemblyCodeAddress not in SYMBOL_CODES:
+            shortHexAddress = hex(nextRAMAvailable).replace('0x', '')
+            extraZerosNeeded = 4 - len(shortHexAddress)
+            paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
+            SYMBOL_CODES.update({assemblyCodeAddress: paddedHex})
+            incrimentRAM = True
+        shortBinaryAddress = bin(int(SYMBOL_CODES[assemblyCodeAddress].replace('0x', ''),16)).replace('0b', '')
+    extraZerosNeeded = 16 - len(shortBinaryAddress)
+    binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
+    return binaryInstruction, incrimentRAM
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: assembleBinary(instruction, instructionType)
+----------------------------------------------------------------
+PURPOSE: Call correct parseing function and either 
+       + return a parsed address instruction or
+       + search through OP_CODES, DEST_CODES, JUMP_CODES dictionaries
+       + for  c_bits, d_bits, j_bits. 
+       + Also, determine if instruction should set a_bit depending on
+       + whether the 'M' characters is found in the operation variable (op)
+       + Finally, Concatinate all bits so that a binary compute instruction 
+       + will be returned, along with a boolean incrimentRAM variable
+       + which specifies if a new variable was encountered in the instruction
+       + and whether it is necessary to incriment the placement of any next variable
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def assembleBinary(instruction, instructionType, nextRAMAvailable):
+    if(instructionType == 'AddressInstruction'): return parseAddressInstruction(instruction, nextRAMAvailable)
+    if(instructionType == 'ComputeInstruction'): op, dest, jump = parseComputeInstruction(instruction)
+    if(instructionType == 'JumpInstruction'): op, dest, jump = parseJumpInstruction(instruction)
+    c_bits = OP_CODES[op]
+    d_bits = DEST_CODES[dest] 
+    j_bits = JUMP_CODES[jump] 
+    MinOP = op.find('M')
+    if(MinOP != -1): a_bit = '1'
+    else: a_bit = '0'
+    binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
+    return binaryInstruction, False
+
+
+""" 
+----------------------------------------------------------------
+FUNCTION: determineInstructionType(instruction)
+----------------------------------------------------------------
+PURPOSE: Search for key characters ('@' or '=' or ';') in instruction
+       + and return the corresponding instruction type 
+       + as a string identifier.
+----------------------------------------------------------------
+RETURN: String declaring instruction type
+----------------------------------------------------------------
+"""
+def determineInstructionType(instruction):
+    if '@' in instruction: return 'AddressInstruction'
+    if '=' in instruction: return 'ComputeInstruction'
+    if ';' in instruction: return 'JumpInstruction'
+
+
 """ 
 ----------------------------------------------------------------
 FUNCTION: findSymbols(line, instructionCounter)
@@ -97,8 +219,7 @@ def findSymbols(line, instructionCounter):
     closingParenthesisCharPosition = line.find(')')
     if(openingParenthesisCharPosition != -1):
         symbol = line[openingParenthesisCharPosition+1:closingParenthesisCharPosition]
-        if(symbol in SYMBOL_CODES): return 0
-        else:
+        if(symbol not in SYMBOL_CODES): 
             shortHexAddress = hex(instructionCounter).replace('0x', '')
             extraZerosNeeded = 4 - len(shortHexAddress)
             paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
@@ -106,6 +227,30 @@ def findSymbols(line, instructionCounter):
             return 1
     return 0
 
+
+""" 
+----------------------------------------------------------------
+FUNCTION: secondPass(infile, outfile)
+----------------------------------------------------------------
+PURPOSE: Go through each line of the lines list. 
+       + Each iteration will get the instructionType, binary, and incrimentRAM  
+       + variables from the associated function calls and will 
+       + write the binary instruction string to the outfile.
+       + The function is also responsible for tracking the next
+       + available RAM address to store variables encountered while
+       + parsing through the lines list. 
+----------------------------------------------------------------
+RETURN: None
+----------------------------------------------------------------
+"""
+def secondPass(lines, outfile):
+    nextRAMAvailable = 16
+    for line in lines: 
+        instructionType = determineInstructionType(line)
+        binary, incrimentRAM = assembleBinary(line, instructionType, nextRAMAvailable)
+        outfile.write(binary  + '\n') 
+        if(incrimentRAM): nextRAMAvailable += 1
+        
 
 """ 
 ----------------------------------------------------------------
@@ -117,7 +262,7 @@ PURPOSE: Parse and clean lines from the infile file object.
        + Skip lines with no instruction
        + Find symbols using the findSymbols(line, instructionCounter) function
        + Add cleaned up instruction lines to the lines list
-       + Incriment instructionCounter
+       + Incriment instructionCounter only if a line was an instructions
 ----------------------------------------------------------------
 RETURN: lines list
 ----------------------------------------------------------------
@@ -139,141 +284,21 @@ def firstPass(infile):
 
 """ 
 ----------------------------------------------------------------
-FUNCTION: parseComputeInstruction(instruction)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: None
-----------------------------------------------------------------
-"""
-def parseComputeInstruction(instruction):
-    equalSignCharPosition = instruction.find('=')
-    dest = instruction[:equalSignCharPosition]
-    op = instruction[equalSignCharPosition+1:]
-    jump = 'null'
-    return op, dest, jump
-
-
-""" 
-----------------------------------------------------------------
-FUNCTION: parseJumpInstruction(instruction)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: op, a_bit, dest, jump
-----------------------------------------------------------------
-"""
-def parseJumpInstruction(instruction):
-    semiColonCharPosition = instruction.find(';')
-    dest = 'null'
-    op = instruction[:semiColonCharPosition]
-    jump = instruction[semiColonCharPosition+1:]
-    return op, dest, jump
-
-""" 
-----------------------------------------------------------------
-FUNCTION: assembleBinary(instruction, instructionType)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: None
-----------------------------------------------------------------
-"""
-def assembleBinary(instruction, instructionType, nextRAMAvailable):
-    if(instructionType == 'AddressInstruction'): return parseAddressInstruction(instruction, nextRAMAvailable)
-    if(instructionType == 'ComputeInstruction'): op, dest, jump = parseComputeInstruction(instruction)
-    if(instructionType == 'JumpInstruction'): op, dest, jump = parseJumpInstruction(instruction)
-    c_bits = OP_CODES[op]
-    d_bits = DEST_CODES[dest] 
-    j_bits = JUMP_CODES[jump] 
-    MinOP = op.find('M')
-    if(MinOP != -1): a_bit = '1'
-    else: a_bit = '0'
-    binaryInstruction = '111' + a_bit + c_bits + d_bits + j_bits
-    return binaryInstruction, False
-
-
-""" 
-----------------------------------------------------------------
-FUNCTION: parseAddressInstruction(instruction)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: None
-----------------------------------------------------------------
-"""
-def parseAddressInstruction(instruction, nextRAMAvailable):
-    incrimentRAM = False
-    atCharPosition = instruction.find('@')
-    assemblyCodeAddress = instruction[atCharPosition+1:]
-    # print('assemblyCodeAddress: {}'.format(assemblyCodeAddress))
-    if(assemblyCodeAddress.isdigit()): # Address is literal
-        shortBinaryAddress = bin(int(assemblyCodeAddress)).replace('0b', '')
-    else: # Address is symbolic
-        binaryInstruction = "TODO"
-        if assemblyCodeAddress not in SYMBOL_CODES:
-            shortHexAddress = hex(nextRAMAvailable).replace('0x', '')
-            extraZerosNeeded = 4 - len(shortHexAddress)
-            paddedHex = '0x' + '0'*extraZerosNeeded + shortHexAddress
-            SYMBOL_CODES.update({assemblyCodeAddress: paddedHex})
-            incrimentRAM = True
-        shortBinaryAddress = bin(int(SYMBOL_CODES[assemblyCodeAddress].replace('0x', ''),16)).replace('0b', '')
-    extraZerosNeeded = 16 - len(shortBinaryAddress)
-    binaryInstruction = '0'*extraZerosNeeded + shortBinaryAddress
-    return binaryInstruction, incrimentRAM
-
-
-""" 
-----------------------------------------------------------------
-FUNCTION: determineInstructionType(instruction)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: String declaring instruction type
-----------------------------------------------------------------
-"""
-def determineInstructionType(instruction):
-    if '@' in instruction: return 'AddressInstruction'
-    if '=' in instruction: return 'ComputeInstruction'
-    if ';' in instruction: return 'JumpInstruction'
-
-""" 
-----------------------------------------------------------------
-FUNCTION: secondPass(infile, outfile)
-----------------------------------------------------------------
-PURPOSE: 
-----------------------------------------------------------------
-RETURN: None
-----------------------------------------------------------------
-"""
-def secondPass(lines, outfile):
-    nextRAMAvailable = 16
-    for line in lines: 
-        instructionType = determineInstructionType(line)
-        binary, incrimentRAM = assembleBinary(line, instructionType, nextRAMAvailable)
-        outfile.write(binary  + '\n') 
-        if(incrimentRAM): nextRAMAvailable += 1
-        
-
-""" 
-----------------------------------------------------------------
 FUNCTION: process_file(inputFileName, outputFileName)
 ----------------------------------------------------------------
 PURPOSE: open(inputFileName) to read lines of .asm file
        + open(outputFileName) to write lines of binary instructions into .hack file
        + Call firstPass(infile)
-       + Call secondPass(infile, outfile)
+       + firstPass() returns a list of lines 
+       + Call secondPass(lines, outfile)
 ----------------------------------------------------------------
 RETURN: None
 ----------------------------------------------------------------
 """
-def process_file(inputFileName, outputFileName):
-    """ Main file processing """
+def process_file(inputFileName, outputFileName): 
     with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
         lines = firstPass(infile)
-        # print(lines)
-        # print(SYMBOL_CODES)
         secondPass(lines, outfile)
 
-
-process_file(sys.argv[1], sys.argv[2]) 
+if __name__ == "__main__":
+    process_file(sys.argv[1], sys.argv[2]) 
