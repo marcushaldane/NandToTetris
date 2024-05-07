@@ -12,7 +12,8 @@ max
 pong
 rect
 04
-07
+MemoryAccess
+StackArithmetic
 08
 09
 10
