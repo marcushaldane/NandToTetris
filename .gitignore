@@ -1,6 +1,7 @@
 # git will ignore the following file:
 tools
 __pycache__
+*.DS_Store
 *.cmp
 *.out
 *.tst
