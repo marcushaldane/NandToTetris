@@ -54,14 +54,15 @@ RETURN: String declaring instruction type
 ----------------------------------------------------------------
 """
 def determineCommandType(command):
-    if '' in command: return 'C_ARITHMETIC'
-    if '' in command: return 'C_PUSH'
-    if '' in command: return 'C_POP'
+    C_ARITHMETIC = ['add', 'sub', 'neg', 'eq', 'gt', 'lt', 'and', 'or', 'not']
+    if command in C_ARITHMETIC: return 'C_ARITHMETIC'
+    if 'push' in command: return 'C_PUSH'
+    if 'pop' in command: return 'C_POP'
     if '' in command: return 'C_LABEL'
     if '' in command: return 'C_GOTO'
     if '' in command: return 'C_IF'
     if '' in command: return 'C_FUNCTION'
-    if '' in command: return 'C_CALL'
+    if 'call' in command: return 'C_CALL'
 
 
 
@@ -76,10 +77,10 @@ RETURN: None
 ----------------------------------------------------------------
 """
 def secondPass(lines, outfile):
-    nextRAMAvailable = 16
     for line in lines: 
-        # instructionType = determineInstructionType(line)
-        outfile.write(line  + '\n') 
+        commandType = determineCommandType(line)
+        print(commandType)
+        outfile.write(commandType  + '\n') 
           
 
 """ 
@@ -117,18 +118,15 @@ RETURN: None
 """
 def process_file(inputFileName, outputFileName): 
     print('arg1: {}'.format(inputFileName) + '\narg2: {}'.format(outputFileName))
-    fileList = glob.glob('.{}/*.vm'.format(inputFileName), recursive=True)
+    print('.{}*.vm'.format(inputFileName))
+    fileList = glob.glob('.{}*.vm'.format(inputFileName), recursive=True)
     print(fileList)
     for file in fileList:
-        with open(file, 'r') as infile: 
-            # for line in infile:
-            #     print(line)
+        with open(file, 'r') as infile, open(outputFileName, 'w') as outfile: 
             lines = cleanVMfile(infile)
+            secondPass(lines, outfile)
         print(lines)
     print('goodbye')
-    # with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
-        # lines = firstPass(infile)
-        # secondPass(lines, outfile)
 
 if __name__ == "__main__":
     process_file(sys.argv[1], sys.argv[2]) 
