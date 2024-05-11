@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
 import sys
+from pathlib import Path
+import glob
 
 SYMBOL_CODES = {
     'SP': '0x0000',
@@ -41,7 +44,7 @@ RETURN:
 
 """ 
 ----------------------------------------------------------------
-FUNCTION: determineInstructionType(instruction)
+FUNCTION: determineCommandType(command)
 ----------------------------------------------------------------
 PURPOSE: Search for key characters ('@' or '=' or ';') in instruction
        + and return the corresponding instruction type 
@@ -50,10 +53,17 @@ PURPOSE: Search for key characters ('@' or '=' or ';') in instruction
 RETURN: String declaring instruction type
 ----------------------------------------------------------------
 """
-def determineInstructionType(instruction):
-    if '@' in instruction: return 'AddressInstruction'
-    if '=' in instruction: return 'ComputeInstruction'
-    if ';' in instruction: return 'JumpInstruction'
+def determineCommandType(command):
+    if '' in command: return 'C_ARITHMETIC'
+    if '' in command: return 'C_PUSH'
+    if '' in command: return 'C_POP'
+    if '' in command: return 'C_LABEL'
+    if '' in command: return 'C_GOTO'
+    if '' in command: return 'C_IF'
+    if '' in command: return 'C_FUNCTION'
+    if '' in command: return 'C_CALL'
+
+
 
 
 """ 
@@ -74,14 +84,14 @@ def secondPass(lines, outfile):
 
 """ 
 ----------------------------------------------------------------
-FUNCTION: firstPass(infile)
+FUNCTION: cleanVMfile(infile)
 ----------------------------------------------------------------
 PURPOSE: 
 ----------------------------------------------------------------
 RETURN: lines list
 ----------------------------------------------------------------
 """
-def firstPass(infile):
+def cleanVMfile(infile):
     lines = []
     for line in infile:
         commentPosition = line.find('/') 
@@ -106,9 +116,19 @@ RETURN: None
 ----------------------------------------------------------------
 """
 def process_file(inputFileName, outputFileName): 
-    with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
-        lines = firstPass(infile)
-        secondPass(lines, outfile)
+    print('arg1: {}'.format(inputFileName) + '\narg2: {}'.format(outputFileName))
+    fileList = glob.glob('.{}/*.vm'.format(inputFileName), recursive=True)
+    print(fileList)
+    for file in fileList:
+        with open(file, 'r') as infile: 
+            # for line in infile:
+            #     print(line)
+            lines = cleanVMfile(infile)
+        print(lines)
+    print('goodbye')
+    # with open(inputFileName, 'r') as infile, open(outputFileName, 'w') as outfile:
+        # lines = firstPass(infile)
+        # secondPass(lines, outfile)
 
 if __name__ == "__main__":
     process_file(sys.argv[1], sys.argv[2]) 
