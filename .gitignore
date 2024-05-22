@@ -5,9 +5,8 @@ __pycache__
 *.cmp
 *.out
 *.tst
-# *.hack
+*.hack
 00
-05
 add
 max
 pong
