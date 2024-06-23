@@ -3,19 +3,23 @@ import sys # used to get argv[] values
 import os # used to get current working directory
 import glob # used to get *.vm files in specified directory
 
-SEGMENT = {
-    'argument': 'ARG',
-    'local': 'LCL',
-    'static': '',
-    'constant': '',
-    'this': 'THIS',
-    'that': 'THAT',
-    'pointer': '',
-    'temp': ''
-}
-
 INSTRUCTION_TRANSLATION = {
-    'push constant': '\n// push constant {} \n@{} \nD=A \n@SP \nA=M \nM=D \n@SP \nM=M+1'
+    'push constant': '\n// push constant {} \n@{} \nD=A \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push argument': '\n// push argument {} \n@{} \nD=A \n@ARG \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push local':    '\n// push local {} \n@{} \nD=A \n@LCL \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push static':   '\n// push static {} \n@{} \nD=A \n@16 \nA=D+A \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push this':     '\n// push this {} \n@{} \nD=A \n@THIS \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push that':     '\n// push that {} \n@{} \nD=A \n@THAT \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push pointer':  '\n// push pointer {} \n@{} \nD=A \n@THIS \nA=D+A \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'push temp':     '\n// push temp {} \n@{} \nD=A \n@5 \nA=D+A \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
+    'pop argument':  '\n// pop argument {} \n@{} \nD=A \n@ARG \nD=M+D \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop local':     '\n// pop local {} \n@{} \nD=A \n@LCL \nD=M+D \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop static':    '\n// pop static {} \n@{} \nD=A \n@16 \nD=D+A \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop this':      '\n// pop this {} \n@{} \nD=A \n@THIS \nD=M+D \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop that':      '\n// pop that {} \n@{} \nD=A \n@THAT \nD=M+D \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop pointer':   '\n// pop pointer {} \n@{} \nD=A \n@THIS \nD=D+A \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    'pop temp':      '\n// pop temp {} \n@{} \nD=A \n@5 \nD=D+A \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D',
+    
 }
 
 ARITHMETIC_INSTRUCTIONS = {
@@ -56,28 +60,15 @@ RETURN: assemblyLinesList list
 def translateVMtoAssembly(lines):
     assemblyLinesList = []
     for i, line in enumerate(lines): 
-        # print('line', i, line, sep=': ')
-
         assemblyLines = ''
         num = ''.join(char for char in line if char.isdigit())
         instruction = ''.join(char for char in line if not(char.isdigit())).strip()
-
         if(num == ''): # if a VM line is an arithmetic instruction, translate that instruction to assembly and incriment the corresponding ARITHMETIC_INSTRUCTIONS_COUNT by 1 (ensures uniqueness of assembly jump label symbols)
             assemblyLines = ARITHMETIC_INSTRUCTIONS[line].replace('{}', str(ARITHMETIC_INSTRUCTIONS_COUNT[line]))
-            # print('[ARITHMETIC_INSTRUCTIONS: {}]'.format(assemblyLine))
             ARITHMETIC_INSTRUCTIONS_COUNT[line] = ARITHMETIC_INSTRUCTIONS_COUNT[line] + 1
-            # print(ARITHMETIC_INSTRUCTIONS_COUNT)
-        elif(instruction == 'push constant'): # if a VM line is the 'push constant' instruction, translate that instruction to assembly 
+        else: # if a VM line is a push or pop instruction, translate that instruction to assembly 
             assemblyLines = INSTRUCTION_TRANSLATION[instruction].replace('{}', str(num))
-            # print(INSTRUCTION_TRANSLATION[instruction].replace('{}', str(num)))
         assemblyLinesList.append(assemblyLines) # add assembly code to the assemblyLinesList 
-        # space = instruction.find(' ')
-        # if(space != -1):
-        #     segment = instruction[space+1:]
-        #     instruction = instruction[:space]
-        # print('instruction: [{}]'.format(instruction))
-        # print('segment: [{}]'.format(segment))
-        # print('num: [{}]'.format(num))
     return assemblyLinesList
           
 
@@ -122,24 +113,17 @@ RETURN: None
 ----------------------------------------------------------------
 """
 def process_file(inputDirectoryName, outputFileName): 
-    # print('arg1: {}'.format(inputDirectoryName) + '\narg2: {}'.format(outputFileName))
     cwd = os.getcwd()
-    # print('cwd: {}'.format(cwd))
-    # informative video on glob: https://www.youtube.com/watch?v=tATFQUx0Zx0
     fileList = glob.iglob('{}/*.vm'.format(inputDirectoryName),
                           root_dir = cwd,
                           recursive = True)
-    # print('fileList: {}'.format(fileList))
     for i, file in enumerate(fileList, 1):
-        # print(i, file, sep=': ')
         with open(file, 'r') as vmfile, open(outputFileName, 'w') as outfile: # can change to {open(outputFileName, 'a')} append mode to handle multiple vm files later
             cleanLines = cleanVMfile(vmfile)
             assemblyLines = translateVMtoAssembly(cleanLines)
-            # print(assemblyLines)
             for line in assemblyLines:
                 outfile.write(line) 
-            # print('===============================')
-
+    
 if __name__ == "__main__":
     process_file(sys.argv[1], sys.argv[2]) 
     
