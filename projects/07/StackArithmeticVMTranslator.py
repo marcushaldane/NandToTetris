@@ -3,17 +3,6 @@ import sys # used to get argv[] values
 import os # used to get current working directory
 import glob # used to get *.vm files in specified directory
 
-SEGMENT = {
-    'argument': 'ARG',
-    'local': 'LCL',
-    'static': '',
-    'constant': '',
-    'this': 'THIS',
-    'that': 'THAT',
-    'pointer': '',
-    'temp': ''
-}
-
 INSTRUCTION_TRANSLATION = {
     'push constant': '\n// push constant {} \n@{} \nD=A \n@SP \nA=M \nM=D \n@SP \nM=M+1'
 }
