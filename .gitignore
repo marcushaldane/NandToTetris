@@ -1,4 +1,4 @@
-# git will ignore the following file:
+# git will ignore the following file(s):
 tools
 __pycache__
 *.DS_Store
@@ -6,6 +6,8 @@ __pycache__
 *.out
 *.tst
 *.hack
+*.vm
+*.html
 00
 add
 max
@@ -15,7 +17,6 @@ rect
 StackArithmetic
 MemoryAccess
 MemoryAccessVMTranslatorWithPrintStatements.py
-08
 09
 10
 11
