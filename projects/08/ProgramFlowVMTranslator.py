@@ -3,7 +3,7 @@ import sys # used to get argv[] values
 import os # used to get current working directory
 import glob # used to get *.vm files in specified directory
 
-INSTRUCTION_TRANSLATION = {
+PUSH_POP_INSTRUCTION_TRANSLATIONS = {
     'push constant': '\n// push constant {} \n@{} \nD=A \n@SP \nA=M \nM=D \n@SP \nM=M+1',
     'push argument': '\n// push argument {} \n@{} \nD=A \n@ARG \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
     'push local':    '\n// push local {} \n@{} \nD=A \n@LCL \nA=M+D \nD=M \n@SP \nA=M \nM=D \n@SP \nM=M+1',
@@ -21,7 +21,7 @@ INSTRUCTION_TRANSLATION = {
     'pop temp':      '\n// pop temp {} \n@{} \nD=A \n@5 \nD=D+A \n@R13 \nM=D \n@SP \nM=M-1 \nA=M \nD=M \n@R13 \nA=M \nM=D'
 }
 
-ARITHMETIC_INSTRUCTIONS = {
+ARITHMETIC_INSTRUCTION_TRANSLATIONS = {
     'sub':  '\n// sub \n@SP \nAM=M-1 \nD=M \n@SP \nAM=M-1 \nM=M-D \n@SP \nM=M+1', 
     'add':  '\n// add \n@SP \nAM=M-1 \nD=M \n@SP \nAM=M-1 \nM=M+D \n@SP \nM=M+1', 
     'neg':  '\n// neg \n@SP \nAM=M-1 \nM=!M \nM=M+1 \n@SP \nM=M+1', 
@@ -33,7 +33,7 @@ ARITHMETIC_INSTRUCTIONS = {
     'not':  '\n// not_{} \n@SP \nAM=M-1 \nM=!M \n@SP \nM=M+1' 
 }
 
-ARITHMETIC_INSTRUCTIONS_COUNT = {
+ARITHMETIC_INSTRUCTION_COUNT = {
     'sub': 0,
     'add': 0,
     'neg': 0,
@@ -43,6 +43,12 @@ ARITHMETIC_INSTRUCTIONS_COUNT = {
     'and': 0,
     'or': 0,
     'not': 0
+}
+
+LABEL_TRANSLATIONS = {
+    'label': '\n// label {} \n({})',
+    'goto': '\n// goto {} \n@{} \n0;JMP',
+    'if-goto': '\n// if-goto {} \n@SP \nAM=M-1 \nD=M \n@{} \nD;JNE'
 }
 
 """ 
@@ -61,12 +67,17 @@ def translateVMtoAssembly(lines):
     for i, line in enumerate(lines): 
         assemblyLines = ''
         num = ''.join(char for char in line if char.isdigit())
-        instruction = ''.join(char for char in line if not(char.isdigit())).strip()
-        if(num == ''): # if a VM line is an arithmetic instruction, translate that instruction to assembly and incriment the corresponding ARITHMETIC_INSTRUCTIONS_COUNT by 1 (ensures uniqueness of assembly jump label symbols)
-            assemblyLines = ARITHMETIC_INSTRUCTIONS[line].replace('{}', str(ARITHMETIC_INSTRUCTIONS_COUNT[line]))
-            ARITHMETIC_INSTRUCTIONS_COUNT[line] = ARITHMETIC_INSTRUCTIONS_COUNT[line] + 1
-        else: # if a VM line is a push or pop instruction, translate that instruction to assembly 
-            assemblyLines = INSTRUCTION_TRANSLATION[instruction].replace('{}', str(num))
+        instruction = ''.join(char for char in line if not(char.isdigit())).strip()        
+        if(instruction in ARITHMETIC_INSTRUCTION_TRANSLATIONS): # if a VM line is an arithmetic instruction, translate that instruction to assembly and incriment the corresponding ARITHMETIC_INSTRUCTION_COUNT by 1 (ensures uniqueness of assembly jump label symbols)
+            assemblyLines = ARITHMETIC_INSTRUCTION_TRANSLATIONS[line].replace('{}', str(ARITHMETIC_INSTRUCTION_COUNT[line]))
+            ARITHMETIC_INSTRUCTION_COUNT[line] = ARITHMETIC_INSTRUCTION_COUNT[line] + 1
+        elif(instruction in PUSH_POP_INSTRUCTION_TRANSLATIONS): # if a VM line is a push or pop instruction, translate that instruction to assembly 
+            assemblyLines = PUSH_POP_INSTRUCTION_TRANSLATIONS[instruction].replace('{}', str(num))
+        else: 
+            spacePosition = instruction.find(' ')
+            labelCommand = instruction[:spacePosition]
+            label = instruction[spacePosition+1:]
+            assemblyLines = LABEL_TRANSLATIONS[labelCommand].replace('{}', label)
         assemblyLinesList.append(assemblyLines) # add assembly code to the assemblyLinesList 
     return assemblyLinesList   
 
